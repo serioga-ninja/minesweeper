@@ -14,7 +14,9 @@
 <script type="text/javascript" src="libs/Snap.svg/dist/snap.svg-min.js"></script>
 <script type="text/javascript" src="js/minesweeper.js"></script>
 <script type="text/javascript">
-    Minesweeper.init('#field');
+    Minesweeper.init('#field').on('open-cell', function (ev) {
+        console.log('cell opened!');
+    });
 </script>
 </body>
 </html>

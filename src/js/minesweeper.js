@@ -18,6 +18,18 @@
             [1, -1], [1, 0], [1, 1]
         ],
 
+        Events  = {
+            'open-cell': function () {},
+            'place-flag': function () {},
+            'win': function () {},
+            'loose': function () {}
+        },
+
+    // TODO: Collect and return data in this function
+        Evt = function (additionalData) {
+
+        },
+
     // clear matrix
         clear = function (w, h) {
             var a = [];
@@ -85,6 +97,20 @@
         return Minesweeper;
     };
 
+    Minesweeper.on = function (event, callback) {
+        if(typeof callback === 'function') {
+            Events[event] = callback;
+        }
+    };
+
+    Minesweeper.fire = function (event, arguments) {
+        Events[event].call(Minesweeper, Evt(arguments));
+    };
+
+    var Game = function () {
+
+    };
+
     var BattleField = function (selector) {
         var field = this,
             ready = false,
@@ -121,15 +147,17 @@
                                 fill: 'red'
                             }, speed, function () {
                                 svgField.text(self.coordX + 5, self.coordY + 15, 'B');
-                                field.reload();
+                                Minesweeper.fire('lose');
                             });
                         } else if (this.minesCount > 0) {
+                            Minesweeper.fire('open-cell');
                             this.cell.animate({
                                 fill: 'yellow'
                             }, speed, function () {
                                 new Elements.NumberCell(self.indexX, self.indexY, self.minesCount);
                             });
                         } else {
+                            Minesweeper.fire('open-cell');
                             this.cell.animate({
                                 fill: 'green'
                             }, speed, function () {
@@ -284,7 +312,7 @@
                 var distance = Math.sqrt((indexX - _x) * (indexX - _x) + (indexY - _y) * (indexY - _y));
 
 
-                if (MinesMap[_x][_y] !== 1 && distance > 2) {
+                if (MinesMap[_x][_y] !== 1 && distance > 3) {
                     MinesMap[_x][_y] = 1;
                     minesCount--;
                 }
