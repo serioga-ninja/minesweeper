@@ -1,0 +1,27 @@
+{
+  "name": "minesweeper",
+  "description": "Minesweeper game",
+  "main": "",
+  "moduleType": [],
+  "keywords": [
+    "game",
+    "minesweeper"
+  ],
+  "authors": [
+    "serioga"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "Snap.svg": "~0.4.1",
+    "jquery": "~2.2.0"
+  }
+}
