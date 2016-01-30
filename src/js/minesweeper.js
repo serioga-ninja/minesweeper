@@ -2,14 +2,14 @@
 
     var Field,
         i, j,
+        game,
         speed = 100,
         properties = {
             xCount: 10,
             yCount: 10,
             cellWidth: 20,
             cellHeight: 20,
-            minesCount: 10,
-            flagsCount: undefined
+            minesCount: 10
         },
     // perimetr coordinates of the point
         aroundCoordinates = [
@@ -17,12 +17,15 @@
             [0, -1], [0, 1],
             [1, -1], [1, 0], [1, 1]
         ],
-
-        Events  = {
-            'open-cell': function () {},
-            'place-flag': function () {},
-            'win': function () {},
-            'loose': function () {}
+        Events = {
+            'open-cell': function () {
+            },
+            'place-flag': function () {
+            },
+            'win': function () {
+            },
+            'loose': function () {
+            }
         },
 
     // TODO: Collect and return data in this function
@@ -85,7 +88,7 @@
 
         $.extend(properties, options || {});
 
-        properties.flagsCount = properties.minesCount;
+        game = new Game(properties);
         // disable right click on scene
         $(field).on('contextmenu', function () {
             return false;
@@ -98,7 +101,7 @@
     };
 
     Minesweeper.on = function (event, callback) {
-        if(typeof callback === 'function') {
+        if (typeof callback === 'function') {
             Events[event] = callback;
         }
     };
@@ -107,9 +110,31 @@
         Events[event].call(Minesweeper, Evt(arguments));
     };
 
-    var Game = function () {
+    var Game = function (options) {
+        var game = this;
+        var availableFlagsCount = options.minesCount;
 
+        game.placeFlag = function () {
+            if (availableFlagsCount > 0) {
+                availableFlagsCount--;
+                return true;
+            }
+            return false;
+        };
+
+        game.removeFlag = function () {
+            availableFlagsCount++;
+            return true;
+        };
+
+        game.getAvailableFlagsCount = function () {
+            return availableFlagsCount;
+        };
+
+        return game;
     };
+
+    $.extend(Game.prototype, {});
 
     var BattleField = function (selector) {
         var field = this,
@@ -141,7 +166,7 @@
                             return false;
                         }
                         this.opened = true;
-                        this.triggerFlag(false);
+                        //this.triggerFlag(false);
                         if (this.isMine > 0) {
                             this.cell.animate({
                                 fill: 'red'
@@ -167,21 +192,20 @@
                     },
                     // place the flag on the scene
                     triggerFlag: function (val) {
-                        if (val === undefined) {
-                            this.isFlag = !this.isFlag;
-                        } else {
-                            this.isFlag = val;
-                        }
 
-                        if (this.isFlag) {
-                            properties.flagsCount--;
+                        console.log(game.getAvailableFlagsCount());
+                        if (!this.isFlag && game.placeFlag()) {
+                            this.isFlag = !this.isFlag;
                             this.cell.remove();
                             this.cell = new Elements.Flag(this.indexX, this.indexY, 'F');
-                        } else {
-                            properties.flagsCount++;
+                        } else if (this.isFlag) {
+                            this.isFlag = !this.isFlag;
+                            game.removeFlag();
                             this.cell.remove();
                             this.cell = new Elements.DummyCell(this.indexX, this.indexY);
                         }
+                        console.log(game.getAvailableFlagsCount());
+
                     },
                     // when double click on numbered cell we open all around
                     openFromNumber: function () {
@@ -332,6 +356,8 @@
                     FieldMatrix[i][j].minesCount = CountsMap[i][j];
                 }
             }
+
+            //$Field.disableSelection();
 
             field.open(indexX, indexY);
 
