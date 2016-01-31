@@ -4,11 +4,74 @@
     <meta charset="UTF-8">
     <title>Title</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="libs/bootstrap/dist/css/bootstrap.min.css">
 </head>
 <body>
 
-<svg id="field">
-</svg>
+<div class="minesweeper">
+    <div class="panel">
+        <div class="flag-info">
+            <object type="image/svg+xml" data="media/flag.svg"
+                    width="20" height="20"></object>
+            <div class="available-flags-count" id="available-flags-count"></div>
+
+        </div>
+        <div class="time-info">
+            <div class="timer">000</div>
+        </div>
+        <div class="face-info"></div>
+    </div>
+    <div class="battlefield">
+        <svg id="field"></svg>
+    </div>
+    <div class="configs">
+        <div class="default-types">
+            <div class="default-type clickable" id="8x8">
+                <span>8 x 8</span>
+                <span>10 mines</span>
+            </div>
+            <div class="default-type clickable" id="16x16">
+                <span>16 x 16</span>
+                <span>40 mines</span>
+            </div>
+            <div class="default-type clickable" id="30x16">
+                <span>30 x 16</span>
+                <span>99 mines</span>
+            </div>
+            <div class="default-type open-custom-form" id="custom">
+                <span>Custom</span>
+            </div>
+        </div>
+    </div>
+    <div class="custom-form" style="display: none">
+        <div class="row">
+            <form class="form-horizontal col-md-8" role="form">
+                <div class="form-group">
+                    <label class="control-label col-sm-6" for="xCount">Width:</label>
+                    <div class="col-sm-6">
+                        <input type="text" id="xCount" name="xCount" value="16">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-sm-6" for="yCount">Height:</label>
+                    <div class="col-sm-6">
+                        <input type="text" id="yCount" name="yCount" value="16">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="control-label col-sm-6" for="minesCount">Mines Count:</label>
+                    <div class="col-sm-6">
+                        <input type="text" id="minesCount" name="minesCount" value="16">
+                    </div>
+                </div>
+                <div class="btn-group col-md-offset-6 col-md-6" role="group">
+                    <button type="button" id="cancel" class="btn btn-secondary">Cancel</button>
+                    <button type="button" id="start" class="btn btn-success">Start</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <script type="text/javascript" src="libs/jquery/dist/jquery.min.js"></script>
 <script type="text/javascript" src="libs/Snap.svg/dist/snap.svg-min.js"></script>

@@ -1,9 +1,16 @@
 ;(function ($, Snap, window, undefined) {
 
+    $.fn.disableSelection = function () {
+        return this
+            .attr('unselectable', 'on')
+            .css('user-select', 'none')
+            .on('selectstart', false);
+    };
+
     var Field,
         i, j,
-        game,
-        speed = 100,
+        game, media = {},
+        speed = 50,
         properties = {
             xCount: 10,
             yCount: 10,
@@ -23,6 +30,8 @@
             'place-flag': function () {
             },
             'win': function () {
+                alert('Win');
+                Minesweeper.showConfigs();
             },
             'loose': function () {
             }
@@ -80,23 +89,67 @@
      * @returns {Minesweeper}
      */
     Minesweeper.init = function init(field, options) {
+        var self = this;
         var $field = $(field);
         if ($field.prop("tagName") !== 'svg') {
             $('<svg/>').appendTo($field);
             field = field + ' svg';
         }
 
-        $.extend(properties, options || {});
-
-        game = new Game(properties);
         // disable right click on scene
         $(field).on('contextmenu', function () {
             return false;
         });
 
-        Field = new BattleField(field);
+        Snap.load('media/flag.svg', function (flag) {
+            media['flag'] = flag.select('g');
+        });
 
-        console.log('Init done');
+        Snap.load('media/mine.svg', function (mine) {
+            media['mine'] = mine.select('g');
+        });
+
+        var defaultSizes = {
+            '8x8': {
+                xCount: 8,
+                yCount: 8,
+                minesCount: 10
+            },
+            '16x16': {
+                xCount: 16,
+                yCount: 16,
+                minesCount: 40
+            },
+            '30x16': {
+                xCount: 30,
+                yCount: 16,
+                minesCount: 99
+            }
+        };
+
+        $('.default-type.clickable').on('click', function (ev) {
+            self._config(field, defaultSizes[$(ev.currentTarget).attr('id')]);
+        });
+
+        $('.open-custom-form').on('click', function (ev) {
+            $('.configs').hide();
+            $('.custom-form').show();
+        });
+
+        $('#cancel').on('click', function () {
+            $('.configs').show();
+            $('.custom-form').hide();
+        });
+
+        $('#start').on('click', function (ev) {
+            var properties = {};
+            $.each($(ev.currentTarget).parents('form').serializeArray(), function (index, obj) {
+                properties[obj.name] = obj.value;
+            });
+
+            self._config(field, properties);
+        });
+
         return Minesweeper;
     };
 
@@ -107,16 +160,40 @@
     };
 
     Minesweeper.fire = function (event, arguments) {
-        Events[event].call(Minesweeper, Evt(arguments));
+        if (Events[event])
+            Events[event].call(Minesweeper, Evt(arguments));
+    };
+
+    Minesweeper._config = function (field, options) {
+        $.extend(properties, options || {});
+
+        game = new Game(properties);
+        $('#available-flags-count').text(game.getAvailableFlagsCount());
+
+        Field = new BattleField(field);
+        $('.configs').hide();
+        $('.custom-form').hide();
+    };
+
+    Minesweeper.showConfigs = function () {
+        $('.configs').show();
+    };
+
+    Minesweeper._draw = function () {
+
     };
 
     var Game = function (options) {
-        var game = this;
-        var availableFlagsCount = options.minesCount;
+        var game = this,
+            availableFlagsCount = options.minesCount,
+            totalMinesCount = options.minesCount,
+            closedCellCount = options.xCount * options.yCount;
 
         game.placeFlag = function () {
             if (availableFlagsCount > 0) {
                 availableFlagsCount--;
+                closedCellCount--;
+                game.updateFlagNumber();
                 return true;
             }
             return false;
@@ -124,11 +201,32 @@
 
         game.removeFlag = function () {
             availableFlagsCount++;
+            closedCellCount++;
+            game.updateFlagNumber();
             return true;
         };
 
         game.getAvailableFlagsCount = function () {
             return availableFlagsCount;
+        };
+
+        game.updateFlagNumber = function () {
+            $('#available-flags-count').text(game.getAvailableFlagsCount());
+            game.checkState();
+        };
+
+        game.open = function () {
+            closedCellCount--;
+            game.checkState();
+        };
+
+        // return true on win
+        game.checkState = function () {
+            var win = closedCellCount === 0;
+            if (win) {
+                Minesweeper.fire('win');
+            }
+            return win;
         };
 
         return game;
@@ -166,46 +264,36 @@
                             return false;
                         }
                         this.opened = true;
-                        //this.triggerFlag(false);
                         if (this.isMine > 0) {
-                            this.cell.animate({
-                                fill: 'red'
-                            }, speed, function () {
-                                svgField.text(self.coordX + 5, self.coordY + 15, 'B');
-                                Minesweeper.fire('lose');
-                            });
+                            self.cell = new Elements.Mine(self.indexX, self.indexY);
+                            Minesweeper.fire('lose');
                         } else if (this.minesCount > 0) {
-                            Minesweeper.fire('open-cell');
-                            this.cell.animate({
-                                fill: 'yellow'
-                            }, speed, function () {
-                                new Elements.NumberCell(self.indexX, self.indexY, self.minesCount);
-                            });
+                            self.cell = new Elements.NumberCell(self.indexX, self.indexY, self.minesCount);
+                            game.open();
                         } else {
-                            Minesweeper.fire('open-cell');
-                            this.cell.animate({
-                                fill: 'green'
-                            }, speed, function () {
+                            setTimeout(function () {
+                                game.open();
                                 field.open(self.indexX, self.indexY);
-                            });
+                                self.cell = new Elements.Opened(self.indexX, self.indexY);
+                            }, speed);
                         }
                     },
                     // place the flag on the scene
                     triggerFlag: function (val) {
-
-                        console.log(game.getAvailableFlagsCount());
+                        if (this.opened || !ready) {
+                            return;
+                        }
                         if (!this.isFlag && game.placeFlag()) {
                             this.isFlag = !this.isFlag;
                             this.cell.remove();
-                            this.cell = new Elements.Flag(this.indexX, this.indexY, 'F');
+                            this.cell = new Elements.Flag(this.indexX, this.indexY);
                         } else if (this.isFlag) {
                             this.isFlag = !this.isFlag;
                             game.removeFlag();
+                            this.cell.selectAll().remove();
                             this.cell.remove();
                             this.cell = new Elements.DummyCell(this.indexX, this.indexY);
                         }
-                        console.log(game.getAvailableFlagsCount());
-
                     },
                     // when double click on numbered cell we open all around
                     openFromNumber: function () {
@@ -220,7 +308,25 @@
 
             Elements = (function () {
                 function events(cell, indexX, indexY) {
-                    cell.mousedown(function (ev) {
+                    var coordX = indexX * properties.cellHeight;
+                    var coordY = indexY * properties.cellWidth;
+                    var group = svgField.group();
+                    var eventRect = svgField.rect(0, 0, properties.cellWidth, properties.cellHeight).attr({
+                        fill: 'white',
+                        stroke: "#000",
+                        strokeWidth: 1
+                    });
+                    if (!(cell instanceof Array)) {
+                        cell = [cell];
+                    }
+
+                    group.transform('t' + coordX + ',' + coordY);
+
+                    group.append(eventRect);
+                    for (var i = 0; i < cell.length; i++) {
+                        group.append(cell[i]);
+                    }
+                    group.mousedown(function (ev) {
                         switch (ev.button) {
                             case 0: //left mouse button
                                 if (!ready) {
@@ -235,42 +341,61 @@
                                 break;
                         }
                     });
+                    return group;
                 }
 
                 return {
                     DummyCell: function (indexX, indexY) {
-                        var coordX = indexX * properties.cellHeight;
-                        var coordY = indexY * properties.cellWidth;
-
-                        var cell = svgField.rect(coordX, coordY, properties.cellWidth, properties.cellHeight).attr({
-                            fill: '#ccc',
-                            stroke: "#000",
-                            strokeWidth: 1
+                        var cell = svgField.rect(0, 0, properties.cellWidth, properties.cellHeight).attr({
+                            fill: '#ccc'
                         }).toggleClass('cell');
 
-                        events(cell, indexX, indexY);
-
-                        return cell;
+                        return events(cell, indexX, indexY);
                     },
-                    Flag: function (indexX, indexY, text) {
-                        var coordX = indexX * properties.cellHeight + 5;
-                        var coordY = indexY * properties.cellWidth + 15;
-
-                        var cell = svgField.text(coordX, coordY, text).toggleClass('cell');
-
-                        events(cell, indexX, indexY);
-
-                        return cell;
+                    Flag: function (indexX, indexY) {
+                        var flag = [];
+                        flag.push(svgField.path('m 4.8895534,16.712231 c 0,0.275901 0.2116869,0.499635 0.4727347,0.499635 l 1.5599037,0 c 0.2610476,0 0.4727346,-0.223734 0.4727346,-0.499635 l 0,-6.052 9.8347566,-3.9478226 c 0.190261,-0.076381 0.312938,-0.2728632 0.304424,-0.4878532 -0.0085,-0.21499 -0.146307,-0.4000978 -0.34192,-0.459394 L 5.4926679,2.2179458 C 5.3499972,2.1747676 5.1963708,2.204674 5.0778522,2.2991737 4.9592879,2.3935531 4.8895534,2.5412596 4.8895534,2.6982144 l 0,14.0140166 z m 1.5600048,-0.49963 -0.6145405,0 0,-4.926214 0.6145405,-0.246626 0,5.17284 z m -0.6145405,-5.995081 0,-6.8562475 9.7306383,2.9503296 -9.7306383,3.9059179 z'));
+                        flag.push(svgField.path('m 5.8507581,6.7864117 c 0,-3.2400918 0.00152,-3.4109429 0.030196,-3.4026976 0.3605537,0.1037358 9.6188099,2.9182916 9.6275399,2.9268191 0.0069,0.00673 -0.124993,0.066702 -0.29306,0.1332818 -0.168071,0.066575 -2.3303,0.9343717 -4.804951,1.9284364 -2.4746502,0.9940589 -4.5129382,1.8114726 -4.5295285,1.8164616 -0.028679,0.0086 -0.030196,-0.162054 -0.030196,-3.4023013 z').attr({
+                            fill: '#ff0000'
+                        }));
+                        return events(flag, indexX, indexY);
                     },
                     NumberCell: function (indexX, indexY, text) {
-                        var coordX = indexX * properties.cellHeight + 5;
-                        var coordY = indexY * properties.cellWidth + 15;
+                        var coordX = indexX * properties.cellHeight;
+                        var coordY = indexY * properties.cellWidth;
+                        var group = svgField.group();
 
-                        var cell = svgField.text(coordX, coordY, text).toggleClass('cell').dblclick(function () {
+                        var cell = svgField.text(5, 15, text).toggleClass('cell');
+                        var eventRect = svgField.rect(0, 0, properties.cellWidth - 1, properties.cellHeight - 1).attr({
+                            fill: 'yellow'
+                        });
+
+                        group.transform('t' + coordX + ',' + coordY);
+
+                        group.append(eventRect);
+                        group.append(cell);
+                        group.dblclick(function () {
                             FieldMatrix[indexX][indexY].openFromNumber();
                         });
 
-                        return cell;
+                        $('text.cell').disableSelection();
+                        return group;
+                    },
+                    Mine: function (indexX, indexY) {
+                        return events(media.mine, indexX, indexY);
+                    },
+                    Opened: function (indexX, indexY) {
+                        var coordX = indexX * properties.cellHeight;
+                        var coordY = indexY * properties.cellWidth;
+                        var group = svgField.group();
+                        var eventRect = svgField.rect(0, 0, properties.cellWidth, properties.cellHeight).attr({
+                            fill: 'green',
+                            stroke: "#000",
+                            strokeWidth: 1
+                        });
+                        group.transform('t' + coordX + ',' + coordY);
+                        group.append(eventRect);
+                        return group;
                     }
                 };
             })();
@@ -282,7 +407,7 @@
             $Field.css({
                 'display': 'block',
                 'width': px(width),
-                'height': px(height)
+                'height': px(height + 5)
             });
         })();
 
@@ -309,10 +434,10 @@
         })();
 
         field.open = function (indexX, indexY) {
-            for (i = 0; i < aroundCoordinates.length; i++) {
-                if (FieldMatrix[indexX + aroundCoordinates[i][0]] !== undefined
-                    && FieldMatrix[indexX][indexY + aroundCoordinates[i][1]] !== undefined) {
-                    var elem = FieldMatrix[indexX + aroundCoordinates[i][0]][indexY + aroundCoordinates[i][1]];
+            for (var t = 0; t < aroundCoordinates.length; t++) {
+                if (FieldMatrix[indexX + aroundCoordinates[t][0]] !== undefined
+                    && FieldMatrix[indexX][indexY + aroundCoordinates[t][1]] !== undefined) {
+                    var elem = FieldMatrix[indexX + aroundCoordinates[t][0]][indexY + aroundCoordinates[t][1]];
                     elem.open();
                 }
             }
@@ -357,17 +482,14 @@
                 }
             }
 
-            //$Field.disableSelection();
-
             field.open(indexX, indexY);
-
-            console.log('Field init done!');
         };
 
         field.reload = function () {
             for (i = 0; i < properties.xCount; i++) {
                 for (j = 0; j < properties.yCount; j++) {
-                    FieldMatrix[i][j].cell.remove();
+                    if (FieldMatrix[i][j])
+                        FieldMatrix[i][j].cell.remove();
                 }
             }
 
